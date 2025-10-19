@@ -1,6 +1,5 @@
 <template>
   <div class="pixel-play">
-    <div class="back-btn" @click="goBack">←</div>
 
     <canvas ref="canvas" class="pixel-canvas"
             @click="handleCanvasClick"
@@ -8,11 +7,12 @@
 
     <audio ref="bgm" :src="bgmSrc" loop preload="auto" autoplay></audio>
 
-    <div class="ui-panel">
+    <div class="ui-panel" :class="{ collapsed: chatCollapsed }">
+      <div class="collapse-btn" @click="chatCollapsed = !chatCollapsed">
+        {{ chatCollapsed ? '💬' : '✖' }}
+      </div>
       <div class="hint">提示：点击小猫可以切换它说的话～</div>
       <div class="audio-controls">
-        <button class="btn-audio" ref="playBtn" @click="tryPlayBgm">播放音乐</button>
-        
       </div>
       
       <div class="chat">
@@ -44,6 +44,10 @@ export default {
       lightningTimer: 0,
       lightningBolts: [],
       lightningProgress: 0,
+      // 定向落雷与联动
+      impact: null, // { x, y, timer, total }
+      puddleBoostTimer: 0,
+      ripples: [],
       // 交互
       mouseX: 0,
       mouseY: 0,
@@ -79,7 +83,9 @@ export default {
       ],
       // 音乐（默认 public/bgm.mp3）
       bgmSrc: '/bgm.mp3',
-      bgmPlaying: false
+      bgmPlaying: false,
+      // 聊天框折叠
+      chatCollapsed: false
     }
   },
   mounted() {
@@ -100,9 +106,6 @@ export default {
     window.removeEventListener('keydown', this.onKey)
   },
   methods: {
-    goBack() {
-      this.$router.push('/')
-    },
     init() {
       const c = this.$refs.canvas
       const dpr = window.devicePixelRatio || 1
@@ -241,13 +244,56 @@ export default {
     //---------------- 元素：水坑
     drawPuddle(x, y) {
       const p = this.pixelSize
-      const a = 0.35 + Math.sin(this.time / 30) * 0.1
+      const boost = this.puddleBoostTimer > 0 ? 0.25 * (this.puddleBoostTimer / 30) : 0
+      const a = Math.min(0.9, 0.35 + Math.sin(this.time / 30) * 0.1 + boost)
       const tiles = [
         [1,0],[2,0],[3,0],[4,0],
         [0,1],[1,1],[2,1],[3,1],[4,1],[5,1],
         [0,2],[1,2],[2,2],[3,2],[4,2],[5,2]
       ]
       tiles.forEach(([px,py])=>this.pxRect(x+px, y+py, `rgba(135,206,235,${a})`))
+    },
+    //---------------- 地面/落点高光与涟漪
+    drawImpactHighlight() {
+      if (!this.impact || this.impact.timer <= 0) return
+      const ctx = this.ctx
+      const c = this.$refs.canvas
+      if (!ctx || !c) return
+      const t = this.impact.timer / (this.impact.total || 30)
+      const radius = Math.max(this.pixelSize * 16, this.pixelSize * 28 * t)
+      const cx = this.impact.x
+      const cy = this.impact.y
+      ctx.save()
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius)
+      g.addColorStop(0, `rgba(255,255,220,${0.22 * t})`)
+      g.addColorStop(1, 'rgba(255,255,220,0)')
+      ctx.globalCompositeOperation = 'lighter'
+      ctx.fillStyle = g
+      ctx.beginPath()
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+      ctx.closePath()
+      ctx.fill()
+      ctx.restore()
+    },
+    drawRipples() {
+      if (!this.ripples || this.ripples.length === 0) return
+      const ctx = this.ctx
+      const p = this.pixelSize
+      const next = []
+      this.ripples.forEach(rp => {
+        if (rp.alpha <= 0.02) return
+        ctx.save()
+        ctx.strokeStyle = `rgba(170,210,250,${rp.alpha})`
+        ctx.lineWidth = Math.max(1, p * 0.8)
+        ctx.beginPath()
+        ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.restore()
+        rp.r += p * 1.4
+        rp.alpha *= 0.9
+        next.push(rp)
+      })
+      this.ripples = next
     },
     //---------------- 小猫像素（按图片重绘）
     drawCat(startX, startY, frame) {
@@ -316,6 +362,34 @@ export default {
       }
       return bolt
     },
+    // 定向闪电：趋向目标点，带少量随机与分支
+    generateDirectedLightningBolt(startX, startY, targetX, targetY) {
+      const bolt = []
+      let x = startX
+      let y = startY
+      const stepsLimit = 220
+      let steps = 0
+      while (y < targetY && steps++ < stepsLimit) {
+        bolt.push({ x, y })
+        const dx = targetX - x
+        const dy = targetY - y
+        const stepY = Math.min(40, Math.max(18, Math.abs(dy) * 0.18 + 16))
+        const stepX = dx * 0.18 + (Math.random() - 0.5) * 26
+        y += stepY
+        x += stepX
+        if (Math.random() < 0.18) {
+          const n = 2 + Math.floor(Math.random() * 2)
+          let bx = x, by = y
+          for (let i = 0; i < n; i++) {
+            bx += (Math.random() - 0.5) * 26
+            by += 12 + Math.random() * 18
+            bolt.push({ x: bx, y: by, branch: true })
+          }
+        }
+      }
+      bolt.push({ x: targetX, y: targetY })
+      return bolt
+    },
     drawLightning() {
       if (!this.lightning || this.lightningBolts.length === 0) return
       const p = this.pixelSize
@@ -329,11 +403,11 @@ export default {
             const t = s / steps
             const x = Math.floor((a.x + (b.x-a.x)*t) / p)
             const y = Math.floor((a.y + (b.y-a.y)*t) / p)
-            // 外圈微光
-            this.pxRect(x-1, y, 'rgba(240,248,255,0.25)')
-            this.pxRect(x+1, y, 'rgba(240,248,255,0.25)')
-            this.pxRect(x, y-1, 'rgba(240,248,255,0.25)')
-            this.pxRect(x, y+1, 'rgba(240,248,255,0.25)')
+            // 外圈微光（降低亮度）
+            this.pxRect(x-1, y, 'rgba(240,248,255,0.15)')
+            this.pxRect(x+1, y, 'rgba(240,248,255,0.15)')
+            this.pxRect(x, y-1, 'rgba(240,248,255,0.15)')
+            this.pxRect(x, y+1, 'rgba(240,248,255,0.15)')
             // 主体
             this.pxRect(x, y, '#ffffff')
           }
@@ -345,6 +419,12 @@ export default {
       const c = this.$refs.canvas
       if (!c) return
       this.time++
+      // 计时器与联动状态维护
+      if (this.puddleBoostTimer > 0) this.puddleBoostTimer--
+      if (this.impact) {
+        this.impact.timer--
+        if (this.impact.timer <= 0) this.impact = null
+      }
 
       // 闪电随机触发
       if (this.lightningTimer > 0) {
@@ -357,9 +437,9 @@ export default {
         this.lightning = false
         this.lightningBolts = []
         this.lightningProgress = 0
-        if (this.time % 200 === 0 && Math.random() < 0.4) {
+        if (this.time % 300 === 0 && Math.random() < 0.25) {
           this.lightningTimer = 15
-          const count = Math.random() < 0.7 ? 1 : 2
+          const count = Math.random() < 0.9 ? 1 : 2
           this.lightningBolts = []
           for (let i = 0; i < count; i++) {
             const sx = c.width * (0.2 + Math.random() * 0.6)
@@ -371,9 +451,10 @@ export default {
       // 背景天空
       const g = this.ctx.createLinearGradient(0, 0, 0, c.height)
       if (this.lightning) {
-        g.addColorStop(0, '#B0C4DE')
-        g.addColorStop(0.6, '#87CEEB')
-        g.addColorStop(1, '#6B9BD1')
+        // 闪电时的天空亮度调低一点
+        g.addColorStop(0, '#9FB3C9')
+        g.addColorStop(0.6, '#76A6CC')
+        g.addColorStop(1, '#5A87B3')
       } else {
         g.addColorStop(0, '#4a5d6f')
         g.addColorStop(0.6, '#3a4d5f')
@@ -405,6 +486,9 @@ export default {
       this.drawCat(this.catX, this.groundTop, this.time)
       // 小猫头顶气泡（上移避免遮挡）
       this.drawSpeechBubble(this.catX + 1, this.groundTop - 14, this.headBubbleText)
+      // 落点高光与涟漪（在闪电之下、云雨之上）
+      this.drawImpactHighlight()
+      this.drawRipples()
 
       // 闪电置顶
       this.drawLightning()
@@ -423,11 +507,44 @@ export default {
       const dpr = window.devicePixelRatio || 1
       const mx = (e.clientX - rect.left) * dpr
       const my = (e.clientY - rect.top) * dpr
+      const c = this.$refs.canvas
+      const p = this.pixelSize
+      const skyBottomPx = this.groundTop * p
       if (!this.bgmPlaying) this.tryPlayBgm()
       const b = this.catBounds
       if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
         this.headBubbleIndex = (this.headBubbleIndex + 1) % this.headBubbleSayings.length
         this.headBubbleText = this.headBubbleSayings[this.headBubbleIndex]
+        return
+      }
+      // 点击天空：定向落雷到树或水坑
+      if (my < skyBottomPx) {
+        const centerX = Math.floor(c.width / p / 2)
+        const grassHeight = 18
+        const puddleY = Math.floor(c.height / p) - grassHeight + 2
+        const treeX = centerX - 20
+        const treeY = this.groundTop - 20
+        let targetGX, targetGY, targetType
+        if (mx < c.width * 0.5) {
+          targetGX = treeX
+          targetGY = treeY + 8
+          targetType = 'tree'
+        } else {
+          targetGX = centerX + 18 + 3
+          targetGY = puddleY + 1
+          targetType = 'puddle'
+        }
+        const tx = targetGX * p
+        const ty = targetGY * p
+        this.lightningTimer = 15
+        this.lightningBolts = [this.generateDirectedLightningBolt(mx, 0, tx, ty)]
+        this.lightningProgress = 0
+        this.lightning = true
+        this.impact = { x: tx, y: ty, timer: 30, total: 30 }
+        if (targetType === 'puddle') {
+          this.puddleBoostTimer = 30
+          this.ripples.push({ x: tx, y: ty, r: p * 2, alpha: 0.28 })
+        }
       }
     },
     onKey(e) {
@@ -556,30 +673,6 @@ export default {
   width: 100%;
   height: 100%;
 }
-.back-btn {
-  position: fixed;
-  top: 20px;
-  left: 20px;
-  width: 48px;
-  height: 48px;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  border: none;
-  font-size: 28px;
-  cursor: pointer;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: Arial, sans-serif;
-  font-weight: bold;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s;
-  backdrop-filter: blur(4px);
-}
-.back-btn:hover { background: rgba(0,0,0,0.8); transform: scale(1.1); }
-.back-btn:active { transform: scale(0.95); }
 
 .ui-panel {
   position: absolute;
@@ -593,6 +686,47 @@ export default {
   padding: 12px;
   z-index: 110;
   backdrop-filter: blur(4px);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ui-panel.collapsed {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.ui-panel.collapsed .hint,
+.ui-panel.collapsed .audio-controls,
+.ui-panel.collapsed .chat {
+  display: none;
+}
+.collapse-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.08);
+  border: 1px solid #333;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+  z-index: 1;
+}
+.collapsed .collapse-btn {
+  position: static;
+  width: 48px;
+  height: 48px;
+  font-size: 20px;
+  background: transparent;
+  border: none;
+}
+.collapse-btn:active {
+  transform: scale(0.92);
 }
 .hint {
   font-size: 12px;
