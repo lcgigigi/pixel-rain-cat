@@ -54,28 +54,28 @@ export default {
       catXOffset: 6,
       // 说话
       catSayings: [
-        '人，咪旁边的这棵树有点像小鸡腿。',
-        '人，今天天气很适合打盹～',
-        '人，有小鱼干吗？',
-        '人，一起听雨吧。',
-        '人，喵！'
+        'Lucy，咪旁边的这棵树有点像小鸡腿。',
+        'Lucy，今天天气很适合打盹～',
+        'Lucy，有小鱼干吗？',
+        'Lucy，一起听雨吧。',
+        'Lucy，喵！'
       ],
       catSayIndex: 0,
       catBounds: { x: 0, y: 0, w: 0, h: 0 },
       // 头顶气泡
-      headBubbleText: '人，咪的世界下雨了，咪处理不好。',
+      headBubbleText: 'Lucy，咪的世界下雨了，咪处理不好。',
       headBubbleSayings: [
-        '人，咪喜欢你的摸摸。',
-        '人，能再陪咪一会吗？',
-        '人，伞借咪一下好不好？',
-        '人，别走太快，咪跟不上。',
-        '人，和咪一起听雨吧。'
+        'Lucy，咪喜欢你的摸摸。',
+        'Lucy，能再陪咪一会吗？',
+        'Lucy，伞借咪一下好不好？',
+        'Lucy，别走太快，咪跟不上。',
+        'Lucy，和咪一起听雨吧。'
       ],
       headBubbleIndex: 0,
       // 聊天
       inputText: '',
       messages: [
-        { role: 'cat', text: '人，咪旁边的这棵树有点像小鸡腿。' },
+        { role: 'cat', text: 'Lucy，咪旁边的这棵树有点像小鸡腿。' },
       ],
       // 音乐（默认 public/bgm.mp3）
       bgmSrc: '/bgm.mp3',
@@ -465,13 +465,13 @@ export default {
     generateCatReply(text) {
       const t = (text || '').toLowerCase().trim()
       // 问候与身份
-      if (/你好|hello|hi/.test(t)) return '人，你好。'
+      if (/你好|hello|hi/.test(t)) return 'Lucy，你好。'
       if (/你是(谁|谁呀)|你叫(什么|啥)/.test(t)) return '我是咪，一只怕淋雨的小猫。'
       if (/名字/.test(t)) return '咪的名字就叫“咪”。'
       // 情绪安慰与共情
       if (/你怎么知道/.test(t)) return '这是咪的秘密。'
-      if (/(谢谢|多谢|感谢|谢了)/.test(t)) return '不用客气，人。'
-      if (/(难过|伤心|哭|不开心)/.test(t)) return '人，咪在这儿，给你抱抱。'
+      if (/(谢谢|多谢|感谢|谢了)/.test(t)) return '不用客气，Lucy。'
+      if (/(难过|伤心|哭|不开心)/.test(t)) return 'Lucy，咪在这儿，给你抱抱。'
       if (/(抱抱|抱我|抱一下)/.test(t)) return '给你一个大抱抱。'
       if (/(累|辛苦)/.test(t)) return '辛苦了，喝口热茶休息一下。'
       if (/(冷|有点冷)/.test(t)) return '外面凉，咪给你披小毯子。'
@@ -486,10 +486,10 @@ export default {
       // 状态在不
       if (/在吗|在不在|在不/.test(t)) return '咪在，咪一直都在。'
       // 早晚问候
-      if (/(早安|早上好)/.test(t)) return '早安，人。今天也要好好加油。'
-      if (/(晚安|晚上好|睡觉)/.test(t)) return '晚安，人。做个甜甜的梦。'
+      if (/(早安|早上好)/.test(t)) return '早安，Lucy。今天也要好好加油。'
+      if (/(晚安|晚上好|睡觉)/.test(t)) return '晚安，Lucy。做个甜甜的梦。'
       // 告别
-      if (/再见|拜拜|byebye|goodbye/.test(t)) return '人，再见。记得带伞。'
+      if (/再见|拜拜|byebye|goodbye/.test(t)) return 'Lucy，再见。记得带伞。'
       // 默认
       return '喵喵喵。'
     },
