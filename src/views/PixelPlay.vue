@@ -76,7 +76,6 @@ export default {
       inputText: '',
       messages: [
         { role: 'cat', text: '人，咪旁边的这棵树有点像小鸡腿。' },
-        { role: 'cat', text: '人，听说你今天和好朋友分开了，会不会有点伤心，没事的，马上就会再见的，咪的肩膀可以借给你。' }
       ],
       // 音乐（默认 public/bgm.mp3）
       bgmSrc: '/bgm.mp3',
