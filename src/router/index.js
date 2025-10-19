@@ -31,6 +31,11 @@ const routes = [
     path: '/pixel-play',
     name: 'PixelPlay',
     component: () => import('../views/PixelPlay.vue')
+  },
+  {
+    path: '/aquarium',
+    name: 'Aquarium',
+    component: () => import('../views/Aquarium.vue')
   }
 ]
 
