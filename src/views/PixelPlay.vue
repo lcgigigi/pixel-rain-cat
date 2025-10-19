@@ -74,7 +74,10 @@ export default {
       headBubbleIndex: 0,
       // 聊天
       inputText: '',
-      messages: [{ role: 'cat', text: '人，咪旁边的这棵树有点像小鸡腿。' }],
+      messages: [
+        { role: 'cat', text: '人，咪旁边的这棵树有点像小鸡腿。' },
+        { role: 'cat', text: '人，听说你今天和好朋友分开了，会不会有点伤心，没事的，马上就会再见的，咪的肩膀可以借给你。' }
+      ],
       // 音乐（默认 public/bgm.mp3）
       bgmSrc: '/bgm.mp3',
       bgmPlaying: false
@@ -461,16 +464,34 @@ export default {
       })
     },
     generateCatReply(text) {
-      const t = text.toLowerCase()
-      // 简单规则：问候、名字、天气、雨、小鱼干、喜欢
+      const t = (text || '').toLowerCase().trim()
+      // 问候与身份
       if (/你好|hello|hi/.test(t)) return '人，你好。'
       if (/你是(谁|谁呀)|你叫(什么|啥)/.test(t)) return '我是咪，一只怕淋雨的小猫。'
       if (/名字/.test(t)) return '咪的名字就叫“咪”。'
+      // 情绪安慰与共情
+      if (/你怎么知道/.test(t)) return '这是咪的秘密。'
+      if (/(谢谢|多谢|感谢|谢了)/.test(t)) return '不用客气，人。'
+      if (/(难过|伤心|哭|不开心)/.test(t)) return '人，咪在这儿，给你抱抱。'
+      if (/(抱抱|抱我|抱一下)/.test(t)) return '给你一个大抱抱。'
+      if (/(累|辛苦)/.test(t)) return '辛苦了，喝口热茶休息一下。'
+      if (/(冷|有点冷)/.test(t)) return '外面凉，咪给你披小毯子。'
+      // 日常闲聊
+      if (/(在干嘛|干什么|做什么|在做什么)/.test(t)) return '咪在听雨，顺便想你。'
+      if (/(无聊)/.test(t)) return '要不要听咪讲一个小故事？'
+      // 天气与场景
       if (/天气|下雨|雨/.test(t)) return '是呀，下雨了，咪有点慌。'
+      // 喜好与食物
       if (/小鱼干|鱼|零食/.test(t)) return '小鱼干？可以多来两份吗？'
       if (/喜欢|爱/.test(t)) return '咪喜欢安静听雨，也喜欢你。'
+      // 状态在不
       if (/在吗|在不在|在不/.test(t)) return '咪在，咪一直都在。'
+      // 早晚问候
+      if (/(早安|早上好)/.test(t)) return '早安，人。今天也要好好加油。'
+      if (/(晚安|晚上好|睡觉)/.test(t)) return '晚安，人。做个甜甜的梦。'
+      // 告别
       if (/再见|拜拜|byebye|goodbye/.test(t)) return '人，再见。记得带伞。'
+      // 默认
       return '喵喵喵。'
     },
     scrollMsgToBottom() {
