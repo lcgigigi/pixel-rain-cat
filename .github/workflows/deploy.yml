@@ -1,0 +1,34 @@
+# 可选：GitHub Actions 自动部署到 GitHub Pages
+# 如果不需要可以删除此文件
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main  # 或 master，根据你的默认分支
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Build
+        run: npm run build
+        
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+
+
